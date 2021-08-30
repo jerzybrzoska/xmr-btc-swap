@@ -123,12 +123,13 @@ async fn next_state(
                             monero_wallet_restore_blockheight
                         }
                     },
-                    _ = cancel_timelock_expires => {
+                    result = cancel_timelock_expires => {
+                        let _ = result?;
                         tracing::info!("Alice took too long to lock Monero, cancelling the swap");
 
                         let state4 = state3.cancel();
                         BobState::CancelTimelockExpired(state4)
-                    }
+                    },
                 }
             } else {
                 let state4 = state3.cancel();
@@ -159,7 +160,8 @@ async fn next_state(
                             },
                         }
                     }
-                    _ = tx_lock_status.wait_until_confirmed_with(state.cancel_timelock) => {
+                    result = tx_lock_status.wait_until_confirmed_with(state.cancel_timelock) => {
+                        let _ = result?;
                         BobState::CancelTimelockExpired(state.cancel())
                     }
                 }
@@ -175,10 +177,14 @@ async fn next_state(
                 // Bob sends Alice his key
 
                 select! {
-                    _ = event_loop_handle.send_encrypted_signature(state.tx_redeem_encsig()) => {
+                    result = event_loop_handle.send_encrypted_signature(state.tx_redeem_encsig()) => {
+                        // TODO: Evaluate if that should bail?
+                        let _ = result?;
+
                         BobState::EncSigSent(state)
                     },
-                    _ = tx_lock_status.wait_until_confirmed_with(state.cancel_timelock) => {
+                    result = tx_lock_status.wait_until_confirmed_with(state.cancel_timelock) => {
+                        let _ = result?;
                         BobState::CancelTimelockExpired(state.cancel())
                     }
                 }
@@ -194,7 +200,8 @@ async fn next_state(
                     state5 = state.watch_for_redeem_btc(bitcoin_wallet) => {
                         BobState::BtcRedeemed(state5?)
                     },
-                    _ = tx_lock_status.wait_until_confirmed_with(state.cancel_timelock) => {
+                    result = tx_lock_status.wait_until_confirmed_with(state.cancel_timelock) => {
+                        let _ = result?;
                         BobState::CancelTimelockExpired(state.cancel())
                     }
                 }
